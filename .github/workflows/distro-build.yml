@@ -41,9 +41,22 @@ jobs:
     name: Generate installer ISO
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull built image
+        # bootc-image-builder no longer pulls the target image itself —
+        # confirmed the hard way: it fails with "image not known" otherwise,
+        # even though the image was just published by the `build` job above
+        # (separate jobs run on separate runners with no shared local state).
+        run: sudo podman pull ghcr.io/${{ github.repository_owner }}/homelab-os:latest
 
       - name: Build ISO with bootc-image-builder
         run: |
