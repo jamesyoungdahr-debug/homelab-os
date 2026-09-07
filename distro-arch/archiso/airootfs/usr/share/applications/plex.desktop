@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Plex
+Comment=Media server
+Exec=falkon http://localhost:32400/web
+Icon=applications-internet
+Categories=Network;
+Terminal=false

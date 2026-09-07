@@ -46,6 +46,10 @@ dolphin
 plasma-nm
 ark
 print-manager
+# Needed so the app-menu launchers (Sonarr, Radarr, etc. — see
+# usr/share/applications/) have something to actually open; nothing else in
+# this package list provides a browser.
+falkon
 
 # Calamares installer (AUR, via the local repo). polkit provides pkexec,
 # which the installer's desktop launcher uses to gain root.

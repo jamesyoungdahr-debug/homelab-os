@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Authentik
+Comment=SSO admin
+Exec=falkon http://localhost:9000
+Icon=applications-internet
+Categories=Network;
+Terminal=false

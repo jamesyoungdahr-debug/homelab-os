@@ -27,4 +27,5 @@ file_permissions=(
   ["/usr/local/bin/homelab-limine-sync.sh"]="0:0:755"
   ["/usr/local/bin/homelab-cleanup-live.sh"]="0:0:755"
   ["/usr/local/bin/homelab-generate-secrets.sh"]="0:0:755"
+  ["/usr/local/bin/homelab-sync-arr-keys.sh"]="0:0:755"
 )

@@ -1,0 +1,12 @@
+[Unit]
+Description=Sync Sonarr/Radarr/Prowlarr API keys into dashboard.env
+After=sonarr.service radarr.service prowlarr.service
+Wants=sonarr.service radarr.service prowlarr.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-sync-arr-keys.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
