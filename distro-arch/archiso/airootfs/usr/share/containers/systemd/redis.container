@@ -1,0 +1,17 @@
+# Authentik's Redis cache/broker. Not exposed outside homelab.network.
+
+[Unit]
+Description=Redis (Authentik backend)
+After=network-online.target
+
+[Container]
+Image=docker.io/library/redis:7-alpine
+ContainerName=redis
+Network=homelab.network
+Volume=/var/mnt/tank/appdata/authentik-redis:/data
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -3,6 +3,16 @@ distro/output/
 distro/*.iso
 distro/*.qcow2
 
+# archiso build output and local VM test scratch — regenerable, large binaries
+distro-arch/out/
+distro-arch/vm/
+distro-arch/local-repo/
+
+# Local copy of upstream Arch releng's archiso profile, kept only for diffing
+# against during development — not part of our build (mkarchiso is pointed at
+# archiso/ directly) and contains real Unix symlinks Windows git can't index.
+distro-arch/releng-reference/
+
 # Never commit filled-in secrets — only the .example templates
 distro/secrets/
 **/*.env
@@ -10,3 +20,4 @@ distro/secrets/
 
 # Session-local Claude Code harness state, not project source
 .claude/*.lock
+.claude/settings.local.json

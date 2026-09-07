@@ -1,0 +1,26 @@
+# Plex uses host networking (Plex's own documented recommendation) instead of
+# homelab.network, so local network discovery and remote access work
+# correctly. This is a deliberate exception to the shared-bridge pattern used
+# by every other app in this stack.
+#
+# No PLEX_CLAIM token is baked in here (it's account-specific and expires
+# within minutes) — claim the server once after first boot via plex.tv/claim,
+# see distro/README.md.
+
+[Unit]
+Description=Plex Media Server
+After=network-online.target
+
+[Container]
+Image=docker.io/plexinc/pms-docker:latest
+ContainerName=plex
+Network=host
+Environment=TZ=Etc/UTC
+Volume=/var/mnt/tank/appdata/plex:/config
+Volume=/var/mnt/tank/media:/media
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
