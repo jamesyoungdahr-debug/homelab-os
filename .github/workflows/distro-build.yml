@@ -72,5 +72,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: homelab-os-iso
-          path: output/*.iso
+          # bootc-image-builder nests output by artifact type, not flat in
+          # output/ — confirmed the real path is output/bootiso/install.iso,
+          # not output/*.iso (the previous glob silently matched nothing and
+          # uploaded no artifact, without failing the job).
+          path: output/bootiso/*.iso
           retention-days: 14
