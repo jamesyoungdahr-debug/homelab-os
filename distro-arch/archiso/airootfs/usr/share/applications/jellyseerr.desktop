@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Jellyseerr
-Comment=Media requests
-Exec=falkon http://localhost:5055
-Icon=applications-internet
-Categories=Network;
-Terminal=false

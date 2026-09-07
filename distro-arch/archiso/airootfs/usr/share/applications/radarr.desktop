@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Radarr
-Comment=Movie management
-Exec=falkon http://localhost:7878
-Icon=applications-internet
-Categories=Network;
-Terminal=false

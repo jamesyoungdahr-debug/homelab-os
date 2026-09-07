@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=qBittorrent
-Comment=Download client
-Exec=falkon http://localhost:8080
-Icon=applications-internet
-Categories=Network;
-Terminal=false

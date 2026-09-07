@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Homepage Dashboard
-Comment=homelab-os dashboard
-Exec=falkon http://localhost:3000
-Icon=applications-internet
-Categories=Network;
-Terminal=false

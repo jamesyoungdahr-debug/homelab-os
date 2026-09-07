@@ -3,15 +3,9 @@ distro/output/
 distro/*.iso
 distro/*.qcow2
 
-# archiso build output and local VM test scratch — regenerable, large binaries
-distro-arch/out/
-distro-arch/vm/
-distro-arch/local-repo/
-
-# Local copy of upstream Arch releng's archiso profile, kept only for diffing
-# against during development — not part of our build (mkarchiso is pointed at
-# archiso/ directly) and contains real Unix symlinks Windows git can't index.
-distro-arch/releng-reference/
+# Moved to its own repo: github.com/jamesyoungdahr-debug/HoltOS. Still lives
+# on disk locally for building/testing, but no longer tracked here.
+distro-arch/
 
 # Never commit filled-in secrets — only the .example templates
 distro/secrets/

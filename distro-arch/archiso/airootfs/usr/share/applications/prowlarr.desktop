@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Prowlarr
-Comment=Indexer management
-Exec=falkon http://localhost:9696
-Icon=applications-internet
-Categories=Network;
-Terminal=false

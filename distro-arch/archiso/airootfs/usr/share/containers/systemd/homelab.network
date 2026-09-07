@@ -1,7 +1,0 @@
-# Shared bridge network for every app container except Plex (which uses host
-# networking for LAN discovery/remote access — see plex.container).
-# Containers on this network resolve each other by their Quadlet filename,
-# e.g. http://sonarr:8989, http://authentik-server:9000, http://postgres:5432.
-
-[Network]
-NetworkName=homelab
