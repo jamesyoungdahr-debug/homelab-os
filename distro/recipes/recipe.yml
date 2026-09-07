@@ -1,0 +1,58 @@
+# BlueBuild recipe for the custom homelab OS.
+#
+# Reference: https://blue-build.org/reference/recipe/
+# NOTE: BlueBuild's module schema has changed across versions — verify module
+# keys against the current docs before the first real build, this file is
+# written against the schema that was current as of early 2026.
+
+name: homelab-os
+description: Atomic KDE Plasma homelab OS with ZFS support and a pre-wired self-hosted media/*arr stack
+base-image: ghcr.io/ublue-os/aurora
+# Pin to a specific numeric Fedora release tag before shipping — "latest" makes
+# builds non-reproducible and can silently jump the kernel version out from
+# under the ZFS kmod build below. e.g. image-version: "40"
+image-version: latest
+
+modules:
+  # Copies distro/files/system/* into the image root. This is how the Podman
+  # Quadlet unit files and the Authentik blueprint land in place.
+  - type: files
+    files:
+      - source: system
+        destination: /
+
+  # Builds/installs the OpenZFS kernel module against this image's exact
+  # kernel, and enables the ZFS import/mount systemd units — see the comment
+  # at the top of files/scripts/build-zfs-kmod.sh for why this has to happen
+  # at image-build time rather than as a plain package install. BlueBuild's
+  # `script` module requires scripts to live at files/scripts/ specifically
+  # (confirmed the hard way: it originally lived in a top-level zfs/
+  # directory and failed with "Cannot declare scripts to run if
+  # /tmp/files/scripts doesn't exist").
+  - type: script
+    scripts:
+      - build-zfs-kmod.sh
+
+  # Extra userspace packages not already present on Aurora.
+  - type: rpm-ostree
+    install:
+      - zfs               # userspace zfs/zpool tooling (kmod itself comes from build-zfs-kmod.sh)
+      - smartmontools      # disk health monitoring — useful with real drives behind a PERC controller
+      - lm_sensors
+
+  # Podman Quadlet units are picked up automatically from
+  # /usr/share/containers/systemd at boot by podman's systemd generator, as
+  # long as each unit has [Install] WantedBy=multi-user.target — no explicit
+  # `systemctl enable` step is needed for those. We do still need to enable
+  # the OpenZFS units explicitly.
+  - type: systemd
+    system:
+      enabled:
+        - zfs-import-cache.service
+        - zfs-import-scan.service
+        - zfs-mount.service
+        - zfs-zed.service
+
+  # BlueBuild's default signing module — keeps cosign image signing wired up
+  # the same way the upstream Aurora image does.
+  - type: signing

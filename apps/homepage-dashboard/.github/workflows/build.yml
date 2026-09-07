@@ -1,0 +1,32 @@
+name: Build homepage-dashboard image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/homepage-dashboard/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: apps/homepage-dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/homepage-dashboard
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/homepage-dashboard:latest

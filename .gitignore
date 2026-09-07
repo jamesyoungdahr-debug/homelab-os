@@ -1,0 +1,12 @@
+# BlueBuild / image build output
+distro/output/
+distro/*.iso
+distro/*.qcow2
+
+# Never commit filled-in secrets — only the .example templates
+distro/secrets/
+**/*.env
+!**/*.env.example
+
+# Session-local Claude Code harness state, not project source
+.claude/*.lock

@@ -1,0 +1,116 @@
+# Local pre-flight test harness — NOT what runs on the real distro.
+#
+# The real deployment uses Podman Quadlets on homelab-os (see
+# ../files/system/usr/share/containers/systemd/*.container). This
+# docker-compose file mirrors that exact same topology (same container
+# names, same env var shapes) using Docker Desktop on a dev machine, so the
+# architecture — SSO round-trip through Authentik, the dashboard app talking
+# to real Sonarr/Radarr/Prowlarr, the blueprint auto-provisioning — can be
+# verified before ever touching the R720 or building the OS image.
+#
+# Container names intentionally match the Quadlet ContainerName= values, so
+# SONARR_URL=http://sonarr:8989 etc. in dashboard.env work unchanged in both
+# environments.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    env_file: authentik.env
+    volumes:
+      - authentik-postgres:/var/lib/postgresql/data
+    networks: [homelab]
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    volumes:
+      - authentik-redis:/data
+    networks: [homelab]
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2025.8
+    container_name: authentik-server
+    command: server
+    depends_on: [postgres, redis]
+    env_file: authentik.env
+    ports:
+      - "9000:9000"
+    volumes:
+      - authentik-media:/media
+      - authentik-certs:/certs
+      - ../files/system/etc/authentik/blueprints:/blueprints/custom:ro
+    networks: [homelab]
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2025.8
+    container_name: authentik-worker
+    command: worker
+    depends_on: [postgres, redis]
+    env_file: authentik.env
+    volumes:
+      - authentik-media:/media
+      - authentik-certs:/certs
+      - ../files/system/etc/authentik/blueprints:/blueprints/custom:ro
+    networks: [homelab]
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Etc/UTC
+    ports:
+      - "8989:8989"
+    volumes:
+      - sonarr-config:/config
+    networks: [homelab]
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Etc/UTC
+    ports:
+      - "7878:7878"
+    volumes:
+      - radarr-config:/config
+    networks: [homelab]
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Etc/UTC
+    ports:
+      - "9696:9696"
+    volumes:
+      - prowlarr-config:/config
+    networks: [homelab]
+
+  homepage-dashboard:
+    build:
+      context: ../../apps/homepage-dashboard
+    container_name: homepage-dashboard
+    depends_on: [authentik-server, sonarr, radarr, prowlarr]
+    env_file: dashboard.env
+    ports:
+      - "3000:3000"
+    networks: [homelab]
+
+networks:
+  homelab:
+
+volumes:
+  authentik-postgres:
+  authentik-redis:
+  authentik-media:
+  authentik-certs:
+  sonarr-config:
+  radarr-config:
+  prowlarr-config:

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "homepage-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/homepage-dashboard", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}
