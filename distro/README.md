@@ -11,22 +11,19 @@ steps and the hardware-specific setup for a Dell PowerEdge R720.
 
 ## Building the image
 
-**Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` — at the repo root, not nested under `distro/`, since GitHub Actions only reads workflows from the actual repo root), not a generic local Podman/Buildah setup — confirmed the hard way, see below.** This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
+Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` — at the repo root, not nested under `distro/`, since GitHub Actions only reads workflows from the actual repo root). This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
 
-`bluebuild build recipes/recipe.yml` looks like it should work locally too, and the recipe **does** template correctly into a valid Containerfile (verified — see below) — but the build itself fails partway through on a genuine environment gap, not a bug in this recipe:
+**Local `bluebuild build` won't work for the ZFS packages, and that's now designed around rather than fought.** Root cause, found by testing against both a local WSL2 Podman/Buildah setup *and* BlueBuild's real GitHub Actions CI (same error in both — see git history for the version of this file written mid-investigation, before the actual fix, if you want the full trail):
 
-- Tested with real Podman 5.7 + Buildah 1.42 on a plain (non-ostree) Linux host (WSL2 Ubuntu 26.04).
-- `rpm-ostree install` — used both by the `script` module (for the ZFS kmod) and the `rpm-ostree` module (for `zfs`/`smartmontools`/`lm_sensors`) — refuses to run: `error: This system was not booted via libostree; found container=podman environment variable.`
-- Worked around the `container` env var check (`env -u container ...`) and got a *different* error: `System has not been booted with systemd as init system (PID 1)` — rpm-ostree talks to a live `rpm-ostreed` daemon over D-Bus, which needs a real running systemd, which a plain `buildah run`/`podman run` container doesn't have.
-- Tried running the container with `--systemd=always` so systemd actually boots as PID 1 — `systemctl is-system-running` still reported `offline`, and `/sysroot/ostree` was empty. The image as pulled by a generic container tool is just the flattened rootfs; it doesn't carry a live OSTree sysroot the way an actually-deployed/booted ostree host does.
-- This is well-documented as *possible* for real bootc/Universal Blue images (`RUN rpm-ostree install ...` in a Containerfile is the standard pattern, used everywhere in that ecosystem) — so BlueBuild's own GitHub Actions build environment clearly satisfies whatever rpm-ostree needs here. What that CI environment does differently wasn't identified; rather than keep reverse-engineering it, use the real thing.
+- A raw `rpm-ostree install <url-or-package>` call — which is what an earlier version of this recipe used, via a custom `script` module, to add the OpenZFS repo RPM and install the kmod — fails identically everywhere with `error: This system was not booted via libostree`. rpm-ostree talks to a live `rpm-ostreed` daemon over D-Bus backed by a real OSTree sysroot; no plain container build (local or CI) has that, only an actually-deployed/booted ostree host does.
+- The **official** `rpm-ostree` module (the one already used for `zfs`/`smartmontools`/`lm_sensors`) does not hit this — whatever it does differently under the hood works in real CI. So the fix was to stop calling `rpm-ostree` directly from a custom script and route the OpenZFS repo RPM through that same official module instead, as two separate `rpm-ostree` module entries (see `recipes/recipe.yml`): one to install just the release RPM (drops the repo file), then a second to install `zfs` itself from the newly-added repo. This mirrors OpenZFS's own Fedora docs, which use two separate `dnf install` commands for exactly this reason — a repo-providing RPM and a package from that repo aren't reliably resolvable in one dnf/rpm-ostree transaction.
+- This fix is written but **not yet re-verified against a real CI run** — the previous run failed on the old script-based approach. Check the Actions tab for the latest run before trusting this.
 
-**Before your first real (CI) build:**
+**Before your next real (CI) build:**
 
-1. ~~Replace `<user>` in the Quadlet/image references~~ — done, both point at `jamesyoungdahr-debug`.
+1. Confirm the latest `distro-build.yml` run actually succeeded — the ZFS package-install restructuring above hasn't had a green run yet.
 2. Pin `base-image`/`image-version` in `recipes/recipe.yml` to a specific known-good Fedora release rather than `latest` (see Risks in the plan — floating `latest` can silently break the ZFS kmod build if the kernel jumps).
-3. Verify the `files/scripts/build-zfs-kmod.sh` repo URL and package names against [OpenZFS's current Fedora install docs](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora) for whatever Fedora version Aurora is tracking at build time.
-4. Set up the `SIGNING_SECRET` repo secret (cosign key pair) the workflow expects — see BlueBuild's [image signing docs](https://blue-build.org/how-to/cosign/).
+3. Verify the release-RPM filename/version in `recipes/recipe.yml`'s first `rpm-ostree` module entry against [OpenZFS's current Fedora install docs](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora) — OpenZFS bumps that package's own version independently of Fedora's.
 
 ## First boot checklist
 
@@ -49,11 +46,11 @@ Copied the actual Quadlet files in this repo to `/usr/share/containers/systemd/`
 - Container-to-container DNS resolution on the `homelab` network works (confirmed `sonarr` resolving and reaching `authentik-server` by name).
 - The dashboard's `Dockerfile` builds cleanly under Podman/Buildah too, not just Docker — same image, same result.
 - A full real SSO login round-trip through this Podman-backed Authentik, with the dashboard also running as a Podman-managed container, succeeded.
-- Installed the real `bluebuild` CLI (v0.9.37) and ran `recipe.yml` through it: **templated into a fully valid Containerfile on the first try** — all five modules (`files`, `script`, `rpm-ostree`, `systemd`, `signing`) recognized and correctly wired. This file was written from documentation alone and had never touched the real tool before.
-- **Found and fixed a real bug**: the `script` module requires scripts to live at `files/scripts/`, not wherever else you'd put them — `build-zfs-kmod.sh` originally lived in a top-level `zfs/` directory and failed with "Cannot declare scripts to run if `/tmp/files/scripts` doesn't exist." Moved it.
-- Attempting the actual local image *build* (not just templating) hit a real environment wall — see "Building the image" above for the full story. Short version: `rpm-ostree install` needs a live systemd+D-Bus-backed OSTree sysroot that a plain container run never has, so this class of build has to happen in BlueBuild's real CI, not generic local Podman/Buildah.
+- Installed the real `bluebuild` CLI (v0.9.37) and ran `recipe.yml` through it: **templated into a fully valid Containerfile on the first try**, and pushing to GitHub confirmed the workflow itself runs end to end (dashboard image build succeeded on the very first real CI run). This file was written from documentation alone and had never touched the real tool before.
+- **Found and fixed two real bugs in the actual GitHub Actions CI run**, not just locally: a custom `script` module requires scripts to live at `files/scripts/` specifically (it originally lived in a top-level `zfs/` directory); and — the bigger one — `rpm-ostree install` called directly from that custom script fails identically in real CI as it did locally (`This system was not booted via libostree`), while the official `rpm-ostree` module doesn't. Restructured the ZFS install to go entirely through that official module instead of a custom script — see "Building the image" above.
+- Also found and fixed: the CI workflow files lived at `distro/.github/workflows/` and `apps/homepage-dashboard/.github/workflows/` — GitHub Actions only reads `.github/workflows/` at the actual repo root, so neither workflow ever triggered on the first push. Moved both to the real location. Separately, both also targeted a `main` branch trigger while this repo's default branch is `master`.
 
-Not yet validated: real Fedora/Aurora specifically (this was WSL2 Ubuntu), the ZFS kmod build actually succeeding against a real kernel, and bootc ISO generation/boot — all blocked on needing a real CI-driven build first.
+Not yet validated: the ZFS-module restructuring's actual CI result (pushed, not yet re-run as of this writing), real Fedora/Aurora specifically for the Quadlet/Authentik testing above (that was WSL2 Ubuntu), and bootc ISO generation/boot.
 
 ## Hardware setup: Dell PowerEdge R720
 

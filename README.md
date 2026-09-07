@@ -49,12 +49,23 @@ manual steps, and `recipe.yml` templates into a fully valid Containerfile
 against the real `bluebuild` CLI. See `distro/README.md`'s "What's been
 validated" section for the details.
 
-**What's left, and why it needs GitHub CI now, not more local testing:**
+This repo now lives at
+[github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os),
+and CI has already caught more real bugs since the first push: workflow
+files nested under `distro/.github/` and `apps/homepage-dashboard/.github/`
+are invisible to GitHub Actions (it only reads `.github/workflows/` at the
+actual repo root — moved them), both workflows targeted a `main` branch
+trigger while this repo's default branch is `master`, and — the big one —
+`rpm-ostree install` called from a custom script fails in real CI exactly
+as it did locally, while routing the same install through the official
+`rpm-ostree` module instead doesn't. See `distro/README.md`'s "Building the
+image" and "What's been validated" sections for the full trail.
 
-1. Verify the OpenZFS repo/package names in `distro/files/scripts/build-zfs-kmod.sh` against whatever Fedora version Aurora is tracking (see `distro/README.md`).
-2. **Actually building the OS image needs to happen in the real GitHub Actions CI**, not generic local Podman/Buildah — confirmed the hard way: `rpm-ostree install` (used for the ZFS kmod and for `zfs`/`smartmontools`/`lm_sensors`) needs a live systemd+D-Bus-backed OSTree sysroot that a plain local container build never has, no matter which privilege flags or workarounds were tried. This is standard and expected for this class of image (BlueBuild's whole ecosystem runs on CI for exactly this reason) — it just means the next step is pushing this repo to GitHub and letting CI build it, rather than continuing to chase it locally.
-3. Once CI produces a real image, generate the ISO via `bootc-image-builder` and boot it in a VM — Podman Quadlets under real Fedora/Aurora, the ZFS kmod actually building against a real kernel, and KDE Plasma booting are all still unexercised.
-4. Only then move to the real R720 hardware.
+**What's left:**
+
+1. Confirm the ZFS-install restructuring (see above) actually goes green on the next CI run — pushed, not yet re-verified.
+2. Once CI produces a real image, generate the ISO via `bootc-image-builder` and boot it in a VM — Podman Quadlets under real Fedora/Aurora, the ZFS kmod actually loading against a real kernel, and KDE Plasma booting are all still unexercised.
+3. Only then move to the real R720 hardware.
 
 See the project plan for the full list of flagged risks and the reasoning
 behind each architecture decision.

@@ -21,22 +21,38 @@ modules:
       - source: system
         destination: /
 
-  # Builds/installs the OpenZFS kernel module against this image's exact
-  # kernel, and enables the ZFS import/mount systemd units — see the comment
-  # at the top of files/scripts/build-zfs-kmod.sh for why this has to happen
-  # at image-build time rather than as a plain package install. BlueBuild's
-  # `script` module requires scripts to live at files/scripts/ specifically
-  # (confirmed the hard way: it originally lived in a top-level zfs/
-  # directory and failed with "Cannot declare scripts to run if
-  # /tmp/files/scripts doesn't exist").
-  - type: script
-    scripts:
-      - build-zfs-kmod.sh
-
-  # Extra userspace packages not already present on Aurora.
+  # OpenZFS's own Fedora install docs use two SEPARATE `dnf install` calls:
+  # first the release RPM (which drops a .repo file + GPG key), then the
+  # actual package from that new repo. That split is load-bearing, not
+  # cosmetic — installing a repo-providing RPM and a package from that same
+  # repo in one dnf/rpm-ostree transaction is unreliable, since repo
+  # metadata isn't guaranteed to refresh mid-transaction. Two separate
+  # `rpm-ostree` module entries reproduce that same split (each becomes its
+  # own Containerfile RUN step).
+  #
+  # Earlier version of this recipe tried to do this via a custom `script`
+  # module calling `rpm-ostree install` directly, both locally (WSL2 Podman)
+  # and in BlueBuild's real GitHub Actions CI — both failed identically with
+  # `error: This system was not booted via libostree`. Whatever makes
+  # `rpm-ostree install` work in a container build, the official
+  # `rpm-ostree` module below does it and a raw script calling the same
+  # binary directly does not — so all package installs now go through it.
   - type: rpm-ostree
     install:
-      - zfs               # userspace zfs/zpool tooling (kmod itself comes from build-zfs-kmod.sh)
+      # %OS_VERSION% is BlueBuild's magic string for the Fedora major
+      # version. Verify this filename (in particular "3-1") against
+      # https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora/
+      # before a real build — OpenZFS bumps the release-RPM's own version
+      # independently of Fedora's.
+      - https://zfsonlinux.org/fedora/zfs-release-3-1.fc%OS_VERSION%.noarch.rpm
+
+  - type: rpm-ostree
+    install:
+      # Plain `zfs` (not a hand-picked kmod-zfs-<version> package) so normal
+      # dnf/rpm-ostree dependency resolution pulls whatever matches this
+      # image's actual pinned kernel — a prebuilt kmod if OpenZFS has one for
+      # it yet, otherwise zfs-dkms and its build dependencies automatically.
+      - zfs
       - smartmontools      # disk health monitoring — useful with real drives behind a PERC controller
       - lm_sensors
 
