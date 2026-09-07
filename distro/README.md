@@ -11,7 +11,7 @@ steps and the hardware-specific setup for a Dell PowerEdge R720.
 
 ## Building the image
 
-Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` — at the repo root, not nested under `distro/`, since GitHub Actions only reads workflows from the actual repo root). This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
+**Status: CI builds a real image and a real bootable ISO, end to end, confirmed green.** Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` — at the repo root, not nested under `distro/`, since GitHub Actions only reads workflows from the actual repo root). This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os`, then a second job produces an installer ISO via `bootc-image-builder` and uploads it as the `homelab-os-iso` workflow artifact — both jobs succeeded on run [`34078289039`](https://github.com/jamesyoungdahr-debug/homelab-os/actions/runs/34078289039).
 
 **How package installation actually works here, after three iterations to find out (all confirmed by directly testing a real container build, not guessed from docs):**
 
@@ -21,11 +21,12 @@ Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` �
 
 One more thing this surfaced: `zfs-dkms`'s post-install script tries to build the kernel module immediately and fails ("kernel headers ... cannot be found") — that's expected and harmless, not a bug to fix. DKMS builds against the *build host's* running kernel (`uname -r`), which during any container-based build (local or CI) is never the kernel actually packaged into this image, so that attempt can never succeed at build time regardless of what's installed. The `zfs` package's own post-install scriptlet already registers the DKMS source and enables `dkms.service`, `zfs-import-cache.service`, `zfs-mount.service`, `zfs-zed.service`, and `zfs.target` — the real module build happens correctly at the real system's first boot, against its real kernel, with no extra recipe steps needed.
 
-**Before your next real (CI) build:**
+Two smaller CI fixes along the way, also confirmed against real runs: `bootc-image-builder` no longer pulls the target image itself (added an explicit `podman pull` step — it fails with "image not known" otherwise even though the image the ISO job needs was just published by the other job, since separate jobs run on separate runners with no shared state), and its ISO output isn't flat in `output/` — it's nested at `output/bootiso/install.iso`, so the artifact-upload glob had to point there instead of `output/*.iso` (which silently matched nothing without failing the job).
 
-1. Confirm the latest `distro-build.yml` run actually goes green — pushed, not yet re-verified as of this writing.
-2. Pin `base-image`/`image-version` in `recipes/recipe.yml` to a specific known-good Fedora release rather than `latest` (see Risks in the plan — floating `latest` can silently break things if the kernel/Fedora version jumps between the base image and what `install-zfs.sh` expects).
-3. Verify the release-RPM filename/version in `files/scripts/install-zfs.sh` against [OpenZFS's current Fedora install docs](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora) — OpenZFS bumps that package's own version independently of Fedora's (confirmed the "3-1" part and the `.fc44` pattern are currently correct for Aurora's current Fedora 44, but that will drift over time).
+**Before relying on a build long-term:**
+
+1. Pin `base-image`/`image-version` in `recipes/recipe.yml` to a specific known-good Fedora release rather than `latest` (see Risks in the plan — floating `latest` can silently break things if the kernel/Fedora version jumps between the base image and what `install-zfs.sh` expects).
+2. Verify the release-RPM filename/version in `files/scripts/install-zfs.sh` against [OpenZFS's current Fedora install docs](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora) — OpenZFS bumps that package's own version independently of Fedora's (confirmed the "3-1" part and the `.fc44` pattern are currently correct for Aurora's current Fedora 44, but that will drift over time).
 
 ## First boot checklist
 
@@ -53,7 +54,9 @@ Copied the actual Quadlet files in this repo to `/usr/share/containers/systemd/`
 - **Found the real ZFS install mechanism through three CI/local iterations, not by guessing**: raw `rpm-ostree install` AND the official `rpm-ostree` module both fail identically, everywhere (local and real CI), with `This system was not booted via libostree` — rpm-ostree needs a live daemon+D-Bus+real-sysroot no container build has. Plain `dnf install` works fine in the exact same context, confirmed directly for a URL RPM, a package from a repo added moments earlier, and a DKMS-only package. See "Building the image" above for the full story.
 - Also found and fixed: the CI workflow files lived at `distro/.github/workflows/` and `apps/homepage-dashboard/.github/workflows/` — GitHub Actions only reads `.github/workflows/` at the actual repo root, so neither workflow ever triggered on the first push. Moved both to the real location. Separately, both also targeted a `main` branch trigger while this repo's default branch is `master`.
 
-Not yet validated: the ZFS-module restructuring's actual CI result (pushed, not yet re-run as of this writing), real Fedora/Aurora specifically for the Quadlet/Authentik testing above (that was WSL2 Ubuntu), and bootc ISO generation/boot.
+- **The full CI pipeline is green end to end**: the OS image builds and pushes to `ghcr.io/jamesyoungdahr-debug/homelab-os`, and a real bootable ISO is generated and uploaded as the `homelab-os-iso` artifact (run [`34078289039`](https://github.com/jamesyoungdahr-debug/homelab-os/actions/runs/34078289039)). Two more real bugs found and fixed along the way — see "Building the image" above.
+
+Not yet validated: real Fedora/Aurora specifically for the Quadlet/Authentik testing above (that was WSL2 Ubuntu, not this image), and — the big remaining one — actually booting the ISO. Nobody has confirmed KDE Plasma boots, the Quadlets start, or ZFS actually imports a pool on this image yet.
 
 ## Hardware setup: Dell PowerEdge R720
 

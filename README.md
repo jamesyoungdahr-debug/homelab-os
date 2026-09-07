@@ -51,21 +51,27 @@ validated" section for the details.
 
 This repo now lives at
 [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os),
-and CI has already caught more real bugs since the first push: workflow
-files nested under `distro/.github/` and `apps/homepage-dashboard/.github/`
-are invisible to GitHub Actions (it only reads `.github/workflows/` at the
-actual repo root — moved them), both workflows targeted a `main` branch
-trigger while this repo's default branch is `master`, and — the big one —
-`rpm-ostree install` called from a custom script fails in real CI exactly
-as it did locally, while routing the same install through the official
-`rpm-ostree` module instead doesn't. See `distro/README.md`'s "Building the
-image" and "What's been validated" sections for the full trail.
+and **CI now builds a real OS image and a real bootable installer ISO, end
+to end** (run
+[`34078289039`](https://github.com/jamesyoungdahr-debug/homelab-os/actions/runs/34078289039),
+`homelab-os-iso` artifact). Getting there caught a string of real bugs, in
+this order: workflow files nested under `distro/.github/` and
+`apps/homepage-dashboard/.github/` are invisible to GitHub Actions (moved
+to the real repo root); both workflows targeted a `main` branch trigger
+while this repo's default branch is `master`; `rpm-ostree install` — both
+called directly and through BlueBuild's own official `rpm-ostree` module —
+fails identically in real CI with "not booted via libostree" (switched all
+package installs to plain `dnf install`, confirmed working in the same
+context); `bootc-image-builder` no longer pulls its target image itself
+(added an explicit pull step); and its ISO lands at
+`output/bootiso/install.iso`, not flat in `output/`. See
+`distro/README.md`'s "Building the image" and "What's been validated"
+sections for the full trail.
 
 **What's left:**
 
-1. Confirm the ZFS-install restructuring (see above) actually goes green on the next CI run — pushed, not yet re-verified.
-2. Once CI produces a real image, generate the ISO via `bootc-image-builder` and boot it in a VM — Podman Quadlets under real Fedora/Aurora, the ZFS kmod actually loading against a real kernel, and KDE Plasma booting are all still unexercised.
-3. Only then move to the real R720 hardware.
+1. **Boot the ISO in a VM** — this is the next real unknown. Nobody has confirmed KDE Plasma boots, the Quadlets start, or ZFS actually imports a pool on this image yet.
+2. Only then move to the real R720 hardware.
 
 See the project plan for the full list of flagged risks and the reasoning
 behind each architecture decision.
