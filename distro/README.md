@@ -72,12 +72,22 @@ it has to happen on the physical hardware before/during install.
 
 ## Testing before touching real hardware
 
-Boot the built ISO in a VM first:
+**Done (2026-09-07), QEMU/KVM in WSL2, real UEFI boot from the actual downloaded `homelab-os-iso` artifact:**
 
-- Confirm KDE Plasma boots and you can log in.
-- `systemctl status sonarr.service` (and the others) to confirm Quadlets started.
-- Attach a scratch virtual disk, `zpool create tank /dev/sdX`, reboot the VM, confirm it auto-imports.
-- Walk through the full SSO login flow via the dashboard app.
+- GRUB boots the ISO and shows the real menu entry: **"Install Aurora 44"** — confirms this is a genuine bootable UEFI installer for our custom image, not a generic Fedora ISO.
+- The embedded Anaconda kickstart runs **fully unattended** — no manual clicking needed to start the install, it deploys straight from `/run/install/repo/container` (our actual bootc container image, not a package-based install).
+- Deployment completes (took ~25 min in this triple-nested Windows→WSL2→KVM setup — a real machine will be much faster) and the **system reboots into a real, rendering KDE Plasma session** — "Welcome to Plasma Desktop / Powered by Aurora" — confirmed via screenshot.
+- The first-run setup wizard (language → keyboard → user account) is interactive but proved awkward to drive by remote automation — QEMU monitor's synthetic keyboard/mouse events turned out to be unreliable (see below), so account creation wasn't completed and no live desktop session was reached.
+- **Switched to direct disk inspection instead** (paused the VM, connected the qcow2 via `qemu-nbd`, mounted the ostree deployment read-only) — this is actually more thorough than a live shell would have been, since it directly confirms file/package state rather than trusting a GUI:
+  - All 12 `.container`/`.network` Quadlet files present at `/usr/share/containers/systemd/` in the real deployed filesystem, including the `:U`-fixed `authentik-server.container`.
+  - The Authentik OIDC blueprint present at `/etc/authentik/blueprints/homepage-oidc.yaml`.
+  - `rpm -qa` inside the deployment (via `chroot`) confirms **ZFS is genuinely installed**: `zfs-release-3-1.fc44`, `libzfs7-2.4.4-1`, `zfs-dkms-2.4.4-1`, `zfs-2.4.4-1` — plus `smartmontools-7.5-9` and `lm_sensors-3.6.0-24`.
+  - `zfs-import.target`, `zfs-mount.service`, `zfs-share.service`, and `zfs-zed.service` are all correctly enabled under `/etc/systemd/system/` — confirming (as found earlier) that the package's own post-install scriptlet handles this without any extra recipe steps.
+
+**A real, separate finding worth recording**: driving the Anaconda GUI wizard via QEMU monitor's `sendkey`/`mouse_move`/`mouse_button` commands was unreliable — clicks and keypresses were silently dropped more often than not, with no error. Attaching a real VNC client (via `novnc`/`websockify`, driven through an actual browser rather than raw monitor commands) worked reliably immediately. If you need to drive a QEMU VM's GUI for testing, use a real VNC/SPICE client — don't rely on monitor-injected input events.
+
+**Not yet done**: completing the first-run wizard to an actual logged-in desktop session, confirming Quadlet services reach `active (running)` state on a real boot (disk inspection confirms they're *correctly configured to start*, not that they successfully *do* start — that still needs a live boot), and the ZFS pool import/scratch-disk test.
 
 Only move to the real R720 (PERC reconfiguration + iDRAC virtual media install)
-once the VM boot is fully validated.
+once you're comfortable with the level of validation above, or after completing
+the remaining live-boot checks.

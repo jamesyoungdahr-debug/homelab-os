@@ -68,10 +68,12 @@ context); `bootc-image-builder` no longer pulls its target image itself
 `distro/README.md`'s "Building the image" and "What's been validated"
 sections for the full trail.
 
+**The ISO has now been booted in a VM (QEMU/KVM in WSL2), and it works**: real UEFI boot showing GRUB's "Install Aurora 44" entry, a fully unattended Anaconda install deploying our actual container image, a reboot into a genuinely rendering KDE Plasma session ("Welcome to Plasma Desktop / Powered by Aurora"), and — via direct disk inspection (`qemu-nbd` + `chroot` into the ostree deployment, since driving Anaconda's GUI further by remote automation proved unreliable) — confirmation that all 12 Quadlet files, the Authentik blueprint, ZFS (`zfs`/`zfs-dkms`/`libzfs7`), and its systemd units are genuinely present and correctly configured in the real installed system. See `distro/README.md`'s "Testing before touching real hardware" section for the full detail, including the one open item (a live boot completing far enough to confirm services actually reach `active (running)`, not just that they're correctly wired to start).
+
 **What's left:**
 
-1. **Boot the ISO in a VM** — this is the next real unknown. Nobody has confirmed KDE Plasma boots, the Quadlets start, or ZFS actually imports a pool on this image yet.
-2. Only then move to the real R720 hardware.
+1. Optionally: finish validating a live boot to `active (running)` service state and a real ZFS pool import/reboot test — the disk-inspection evidence above is already strong, so this is a nice-to-have, not a blocker.
+2. Move to the real R720 hardware: PERC controller reconfiguration, iDRAC virtual media install (see `distro/README.md`'s hardware section).
 
 See the project plan for the full list of flagged risks and the reasoning
 behind each architecture decision.
