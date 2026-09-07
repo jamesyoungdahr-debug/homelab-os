@@ -21,53 +21,27 @@ modules:
       - source: system
         destination: /
 
-  # OpenZFS's own Fedora install docs use two SEPARATE `dnf install` calls:
-  # first the release RPM (which drops a .repo file + GPG key), then the
-  # actual package from that new repo. That split is load-bearing, not
-  # cosmetic — installing a repo-providing RPM and a package from that same
-  # repo in one dnf/rpm-ostree transaction is unreliable, since repo
-  # metadata isn't guaranteed to refresh mid-transaction. Two separate
-  # `rpm-ostree` module entries reproduce that same split (each becomes its
-  # own Containerfile RUN step).
+  # Installs OpenZFS (+ smartmontools, lm_sensors) via plain `dnf install`.
   #
-  # Earlier version of this recipe tried to do this via a custom `script`
-  # module calling `rpm-ostree install` directly, both locally (WSL2 Podman)
-  # and in BlueBuild's real GitHub Actions CI — both failed identically with
-  # `error: This system was not booted via libostree`. Whatever makes
-  # `rpm-ostree install` work in a container build, the official
-  # `rpm-ostree` module below does it and a raw script calling the same
-  # binary directly does not — so all package installs now go through it.
-  - type: rpm-ostree
-    install:
-      # %OS_VERSION% is BlueBuild's magic string for the Fedora major
-      # version. Verify this filename (in particular "3-1") against
-      # https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora/
-      # before a real build — OpenZFS bumps the release-RPM's own version
-      # independently of Fedora's.
-      - https://zfsonlinux.org/fedora/zfs-release-3-1.fc%OS_VERSION%.noarch.rpm
+  # This went through three iterations before landing here — both raw
+  # `rpm-ostree install` (in a custom script) AND BlueBuild's official
+  # `rpm-ostree` module failed IDENTICALLY, in both a local WSL2
+  # Podman/Buildah environment and real GitHub Actions CI, with
+  # `error: This system was not booted via libostree`. rpm-ostree talks to a
+  # live daemon over D-Bus backed by a real OSTree sysroot, which no
+  # container build (local or CI) has. Confirmed directly that plain `dnf
+  # install` — including from a URL, and installing a package from a repo
+  # added by a dnf call moments earlier — works fine in the exact same
+  # build context. See files/scripts/install-zfs.sh for the full story and
+  # why the zfs-dkms module-build "failure" it logs is expected and harmless.
+  - type: script
+    scripts:
+      - install-zfs.sh
 
-  - type: rpm-ostree
-    install:
-      # Plain `zfs` (not a hand-picked kmod-zfs-<version> package) so normal
-      # dnf/rpm-ostree dependency resolution pulls whatever matches this
-      # image's actual pinned kernel — a prebuilt kmod if OpenZFS has one for
-      # it yet, otherwise zfs-dkms and its build dependencies automatically.
-      - zfs
-      - smartmontools      # disk health monitoring — useful with real drives behind a PERC controller
-      - lm_sensors
-
-  # Podman Quadlet units are picked up automatically from
-  # /usr/share/containers/systemd at boot by podman's systemd generator, as
-  # long as each unit has [Install] WantedBy=multi-user.target — no explicit
-  # `systemctl enable` step is needed for those. We do still need to enable
-  # the OpenZFS units explicitly.
-  - type: systemd
-    system:
-      enabled:
-        - zfs-import-cache.service
-        - zfs-import-scan.service
-        - zfs-mount.service
-        - zfs-zed.service
+  # No explicit systemd-unit-enable step needed here — confirmed directly
+  # that the zfs package's own post-install scriptlet already enables
+  # zfs-import-cache.service, zfs-mount.service, zfs-zed.service, and
+  # zfs.target correctly on its own.
 
   # BlueBuild's default signing module — keeps cosign image signing wired up
   # the same way the upstream Aurora image does.
