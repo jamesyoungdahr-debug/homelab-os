@@ -11,7 +11,7 @@ steps and the hardware-specific setup for a Dell PowerEdge R720.
 
 ## Building the image
 
-**Must be built via the GitHub Actions CI (`.github/workflows/build.yml`), not a generic local Podman/Buildah setup — confirmed the hard way, see below.** This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
+**Must be built via the GitHub Actions CI (`.github/workflows/distro-build.yml` — at the repo root, not nested under `distro/`, since GitHub Actions only reads workflows from the actual repo root), not a generic local Podman/Buildah setup — confirmed the hard way, see below.** This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
 
 `bluebuild build recipes/recipe.yml` looks like it should work locally too, and the recipe **does** template correctly into a valid Containerfile (verified — see below) — but the build itself fails partway through on a genuine environment gap, not a bug in this recipe:
 

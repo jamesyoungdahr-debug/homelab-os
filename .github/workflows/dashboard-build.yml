@@ -2,7 +2,7 @@ name: Build homepage-dashboard image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "apps/homepage-dashboard/**"
   workflow_dispatch:

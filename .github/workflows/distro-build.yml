@@ -2,7 +2,7 @@ name: Build homelab OS image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "distro/**"
   schedule:
@@ -30,13 +30,12 @@ jobs:
         uses: blue-build/github-action@v1.10
         with:
           recipe: recipe.yml
+          # Repositions where the action looks for recipes/ and cosign.pub —
+          # this is a monorepo shared with apps/homepage-dashboard, so the
+          # actual recipe lives at distro/recipes/recipe.yml, not ./recipe.yml.
+          working_directory: distro
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ secrets.GITHUB_TOKEN }}
-          pkl_version: latest
-        # working-directory pinned to distro/ since this is a monorepo shared
-        # with apps/homepage-dashboard.
-        env:
-          BLUEBUILD_RECIPE_DIR: distro/recipes
 
   build-iso:
     name: Generate installer ISO
