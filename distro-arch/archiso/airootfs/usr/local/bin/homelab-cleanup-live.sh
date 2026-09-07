@@ -11,9 +11,17 @@
 # launcher. None of that belongs on the installed system — left in place,
 # the install boots straight into a stale liveuser desktop instead of
 # prompting for the real account.
+#
+# Also uninstalls calamares itself: it's a real pacman package needed to run
+# the live installer, so unpackfs copies it (and its desktop launcher) onto
+# the target the same way — left in place, "Install System" shows up in the
+# installed system's own application menu. -Rns removes it and any
+# dependencies pulled in only for it (nothing else in this stack depends on
+# calamares), and its config files.
 set -euo pipefail
 
 userdel -r liveuser 2>/dev/null || true
 rm -f /etc/sudoers.d/liveuser-wheel
 rm -f /etc/sddm.conf.d/autologin.conf
 rm -f /usr/share/applications/homelab-install.desktop
+pacman -Rns --noconfirm calamares
