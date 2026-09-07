@@ -11,7 +11,7 @@ steps and the hardware-specific setup for a Dell PowerEdge R720.
 
 ## Building the image
 
-**Must be built via the GitHub Actions CI (`.github/workflows/build.yml`), not a generic local Podman/Buildah setup — confirmed the hard way, see below.** Push to a GitHub repo and let CI build and publish `ghcr.io/<user>/homelab-os`, then separately produce an installer ISO via `bootc-image-builder`.
+**Must be built via the GitHub Actions CI (`.github/workflows/build.yml`), not a generic local Podman/Buildah setup — confirmed the hard way, see below.** This repo lives at [github.com/jamesyoungdahr-debug/homelab-os](https://github.com/jamesyoungdahr-debug/homelab-os); pushing to it builds and publishes `ghcr.io/jamesyoungdahr-debug/homelab-os` automatically, then separately produces an installer ISO via `bootc-image-builder`.
 
 `bluebuild build recipes/recipe.yml` looks like it should work locally too, and the recipe **does** template correctly into a valid Containerfile (verified — see below) — but the build itself fails partway through on a genuine environment gap, not a bug in this recipe:
 
@@ -23,7 +23,7 @@ steps and the hardware-specific setup for a Dell PowerEdge R720.
 
 **Before your first real (CI) build:**
 
-1. Replace `<user>` in `files/system/usr/share/containers/systemd/homepage-dashboard.container` and this repo's image references with your actual GitHub username/org.
+1. ~~Replace `<user>` in the Quadlet/image references~~ — done, both point at `jamesyoungdahr-debug`.
 2. Pin `base-image`/`image-version` in `recipes/recipe.yml` to a specific known-good Fedora release rather than `latest` (see Risks in the plan — floating `latest` can silently break the ZFS kmod build if the kernel jumps).
 3. Verify the `files/scripts/build-zfs-kmod.sh` repo URL and package names against [OpenZFS's current Fedora install docs](https://openzfs.github.io/openzfs-docs/Getting%20Started/Fedora) for whatever Fedora version Aurora is tracking at build time.
 4. Set up the `SIGNING_SECRET` repo secret (cosign key pair) the workflow expects — see BlueBuild's [image signing docs](https://blue-build.org/how-to/cosign/).
